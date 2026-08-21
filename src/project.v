@@ -74,7 +74,7 @@ module tt_um_terihear_tinytearout (
                 end
 
                 default: in_state <= S_IDLE;
-            end
+	      endcase
         end else begin
             // Hold state when not enabled
             operands_valid <= 1'b0;
@@ -164,10 +164,11 @@ module tt_um_terihear_tinytearout (
     reg        out_word_sel; // 0 = emit LO, 1 = emit HI
     reg [15:0] out_shift;
     reg        out_active;
+    reg	       out_data;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            uo_out     <= 8'd0;
+            out_data       <= 8'd0;
             out_word_sel <= 1'b0;
             out_shift    <= 16'd0;
             out_active   <= 1'b0;
@@ -175,20 +176,22 @@ module tt_um_terihear_tinytearout (
             if (result_valid && !out_active) begin
                 // Capture result, emit LO byte immediately
                 out_shift    <= rounded_result;
-                uo_out     <= rounded_result[7:0];
+                out_data     <= rounded_result[7:0];
                 out_word_sel <= 1'b1;
                 out_active   <= 1'b1;
             end else if (out_active && out_word_sel) begin
                 // Emit HI byte, then deactivate
-                uo_out     <= out_shift[15:8];
+                out_data     <= out_shift[15:8];
                 out_word_sel <= 1'b0;
                 out_active   <= 1'b0;
             end else begin
-                uo_out <= 8'd0;
+                out_data <= 8'd0;
             end
         end
     end
 
+  assign uo_out = out_data;
+   
   // All output pins must be assigned. If not used, assign to 0.
   assign uio_out = 0;
   assign uio_oe  = 0;
