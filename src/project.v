@@ -164,11 +164,11 @@ module tt_um_terihear_tinytearout (
     reg        out_word_sel; // 0 = emit LO, 1 = emit HI
     reg [15:0] out_shift;
     reg        out_active;
-    reg	       out_data;
+    reg [7:0]  out_data;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            out_data       <= 8'd0;
+            out_data     <= 8'd0;
             out_word_sel <= 1'b0;
             out_shift    <= 16'd0;
             out_active   <= 1'b0;
