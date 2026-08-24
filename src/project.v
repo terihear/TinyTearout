@@ -164,7 +164,7 @@ module tt_um_terihear_tinytearout (
     reg        out_word_sel; // 0 = emit LO, 1 = emit HI
     reg [15:0] out_shift;
     reg        out_active;
-    reg [7:0]  out_data;
+    reg [7:0]   out_data;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -172,30 +172,34 @@ module tt_um_terihear_tinytearout (
             out_word_sel <= 1'b0;
             out_shift    <= 16'd0;
             out_active   <= 1'b0;
-        end else if (ena) begin
-            if (result_valid && !out_active) begin
-                // Capture result, emit LO byte immediately
-                out_shift    <= rounded_result;
-                out_data     <= rounded_result[7:0];
-                out_word_sel <= 1'b1;
-                out_active   <= 1'b1;
-            end else if (out_active && out_word_sel) begin
-                // Emit HI byte, then deactivate
-                out_data     <= out_shift[15:8];
-                out_word_sel <= 1'b0;
-                out_active   <= 1'b0;
-            end else begin
-                out_data <= 8'd0;
-            end
-        end
-    end
+      end else if (ena) begin
+         if (result_valid && !out_active) begin
+            // Capture result, emit LO byte immediately
+            out_shift    <= rounded_result;
+            out_data     <= rounded_result[7:0];
+            // still out_word_sel <= 1'b0;
+            out_active   <= 1'b1;
+         end else if (out_active) begin
+            // Emit HI byte, then deactivate
+            out_data     <= out_shift[15:8];
+            out_word_sel <= 1'b1;
+            out_active   <= 1'b0;
+         end else begin
+	    out_word_sel <= 1'b0;
+            out_data <= 8'd0;
+         end
+      end // if (ena)
+    end // always @ (posedge clk or negedge rst_n)
 
-  assign uo_out = out_data;
+   // uio_oe[0] as indicating output LO available
+   // uio_oe[1] as indicating LO or HI
+   assign uio_oe = {6'd0, out_word_sel, out_active};
+
+   assign uo_out = out_data;
    
-  // All output pins must be assigned. If not used, assign to 0.
+   // All output pins must be assigned. If not used, assign to 0.
   assign uio_out = 0;
-  assign uio_oe  = 0;
-
+ 
   // List all unused inputs to prevent warnings
   wire _unused = &{uio_in, 1'b0};
 
