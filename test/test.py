@@ -61,18 +61,16 @@ class MultDriver:
         for _ in range(timeout_cycles):
             await RisingEdge(self.dut.clk)
             val = int(self.dut.uo_out.value)
-            if not got_lo:
-                # First non-zero output (or zero if result is legitimately 0)
-                # We rely on out_active being internal; externally we detect
-                # the first byte after send_operand completes.
-                # Use a simple heuristic: wait until we've seen at least 1 cycle
-                # past send, then capture first byte unconditionally.
-                lo_byte = val
-                got_lo = True
-            else:
-                hi_byte = val
-                raw = (hi_byte << 8) | lo_byte
-                return raw if raw < 0x8000 else raw - 0x10000
+            avail = int(self.dut.uio_eo.value);
+            if avail > 0:
+                # output LO available
+                if ( not got_lo and avail == 1 ):
+                    lo_byte = val
+                    got_lo = True
+                else:
+                    hi_byte = val
+                    raw = (hi_byte << 8) | lo_byte
+                    return raw if raw < 0x8000 else raw - 0x10000
 
         raise TimeoutError(f"No complete output within {timeout_cycles} cycles")
 
@@ -81,26 +79,9 @@ class MultDriver:
         """Convenience: send operand and return result."""
         await self.send_operand(mcand_s16, coeff_q07)
         # Allow pipeline to process; first output byte appears ~16 cycles later
-        # Skip initial idle cycles where uo_out == 0 before result arrives
         # We need to distinguish "no output yet" from "output is zero"
-        # Strategy: wait a minimum number of cycles, then collect
-        min_wait = 14  # Earliest possible output
-        for _ in range(min_wait):
-            await RisingEdge(self.dut.clk)
-        return await self._collect_from_now(timeout_cycles - min_wait)
-
-    async def _collect_from_now(self, timeout_cycles):
-        """Collect 2 bytes starting from current cycle."""
-        lo = int(self.dut.uo_out.value)
-        await RisingEdge(self.dut.clk)
-        for _ in range(timeout_cycles):
-            hi = int(self.dut.uo_out.value)
-            # Validate: if hi is also 0 and lo was 0, might still be idle
-            # But after min_wait, we expect valid output
-            raw = (hi << 8) | lo
-            return raw if raw < 0x8000 else raw - 0x10000
-        raise TimeoutError("Second output byte not received")
-
+        # Bad Strategy: wait a minimum number of cycles, then collect
+        return await self.collect_result(timeout_cycles)
 
 def golden_multiply(mcand_s16: int, coeff_q07: int) -> int:
     """
@@ -137,6 +118,71 @@ async def test_project(dut):
     dut.rst_n.value = 1
 
     dut._log.info("Test project behavior")
+
+# =============================================================================
+# LATENCY FALSIFICATION
+# =============================================================================
+
+@cocotb.test()
+async def test_latency_falsification(dut):
+    """
+    Measure actual latency from mcand-HI-presented to product-LSB-emitted.
+    Spec: 16 cycles. Attempt to falsify with 50 random trials.
+    Set the sim clock period to 20 ns (50 MHz)
+    """
+    clock = Clock(dut.clk, 20, unit="ns")
+    cocotb.start_soon(clock.start())
+    drv = MultDriver(dut)
+    await drv.reset()
+
+    NUM_TRIALS = 50
+    latencies = []
+
+    for trial in range(NUM_TRIALS):
+        mcand = random.randint(-32768, 32767)
+        coeff = random.randint(-128, 127)
+
+        # Manually drive to get precise timestamps
+        dut.ena.value = 1
+
+        # Cycle 0: coeff
+        dut.ui_in.value = coeff & 0xFF
+        await RisingEdge(dut.clk)
+
+        # Cycle 1: mcand_lo
+        dut.ui_in.value = mcand & 0xFF
+        await RisingEdge(dut.clk)
+
+        # Cycle 2: mcand_hi ← REFERENCE POINT (mcand fully presented)
+        dut.ui_in.value = (mcand >> 8) & 0xFF
+        t_start = cocotb.utils.get_sim_time(unit="ns")
+        await RisingEdge(dut.clk)
+
+        dut.ena.value = 0
+        dut.ui_in.value = 0
+
+        # Wait for first output byte
+        found = False
+        for cyc in range(40):
+            await RisingEdge(dut.clk)
+            # After sufficient pipeline delay, capture first output
+            if cyc >= 13:  # Earliest possible: cycle 14
+                t_end = cocotb.utils.get_sim_time(unit="ns")
+                latency = round((t_end - t_start) / 20.0)
+                latencies.append(latency)
+                found = True
+                break
+
+        assert found, f"Trial {trial}: no output within 40 cycles"
+
+    unique = sorted(set(latencies))
+    dut._log.info(f"Latency over {NUM_TRIALS} trials: unique={unique}, "
+                  f"min={min(latencies)}, max={max(latencies)}")
+
+    outliers = [l for l in latencies if l < 14 or l > 18]
+    assert not outliers, f"Latency falsified! Outliers: {outliers}"
+    assert len(unique) <= 2, f"Inconsistent latency: {unique}"
+
 
 # =============================================================================
 # BOUNDARY COEFFICIENTS
@@ -221,71 +267,6 @@ async def test_rounding_half_up(dut):
             failures.append(f"  {mcand}×{coeff}: exp={expected}, got={actual}")
 
     assert not failures, "Rounding failures:\n" + "\n".join(failures)
-
-
-# =============================================================================
-# LATENCY FALSIFICATION
-# =============================================================================
-
-@cocotb.test()
-async def test_latency_falsification(dut):
-    """
-    Measure actual latency from mcand-HI-presented to product-LSB-emitted.
-    Spec: 16 cycles. Attempt to falsify with 50 random trials.
-    Set the sim clock period to 20 ns (50 MHz)
-    """
-    clock = Clock(dut.clk, 20, unit="ns")
-    cocotb.start_soon(clock.start())
-    drv = MultDriver(dut)
-    await drv.reset()
-
-    NUM_TRIALS = 50
-    latencies = []
-
-    for trial in range(NUM_TRIALS):
-        mcand = random.randint(-32768, 32767)
-        coeff = random.randint(-128, 127)
-
-        # Manually drive to get precise timestamps
-        dut.ena.value = 1
-
-        # Cycle 0: coeff
-        dut.ui_in.value = coeff & 0xFF
-        await RisingEdge(dut.clk)
-
-        # Cycle 1: mcand_lo
-        dut.ui_in.value = mcand & 0xFF
-        await RisingEdge(dut.clk)
-
-        # Cycle 2: mcand_hi ← REFERENCE POINT (mcand fully presented)
-        dut.ui_in.value = (mcand >> 8) & 0xFF
-        t_start = cocotb.utils.get_sim_time(unit="ns")
-        await RisingEdge(dut.clk)
-
-        dut.ena.value = 0
-        dut.ui_in.value = 0
-
-        # Wait for first output byte
-        found = False
-        for cyc in range(40):
-            await RisingEdge(dut.clk)
-            # After sufficient pipeline delay, capture first output
-            if cyc >= 13:  # Earliest possible: cycle 14
-                t_end = cocotb.utils.get_sim_time(unit="ns")
-                latency = round((t_end - t_start) / 20.0)
-                latencies.append(latency)
-                found = True
-                break
-
-        assert found, f"Trial {trial}: no output within 40 cycles"
-
-    unique = sorted(set(latencies))
-    dut._log.info(f"Latency over {NUM_TRIALS} trials: unique={unique}, "
-                  f"min={min(latencies)}, max={max(latencies)}")
-
-    outliers = [l for l in latencies if l < 14 or l > 18]
-    assert not outliers, f"Latency falsified! Outliers: {outliers}"
-    assert len(unique) <= 2, f"Inconsistent latency: {unique}"
 
 
 # =============================================================================
