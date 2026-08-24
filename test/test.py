@@ -61,7 +61,7 @@ class MultDriver:
         for _ in range(timeout_cycles):
             await RisingEdge(self.dut.clk)
             val = int(self.dut.uo_out.value)
-            avail = int(self.dut.uio_eo.value);
+            avail = int(self.dut.uio_oe.value);
             if avail > 0:
                 # output LO available
                 if ( not got_lo and avail == 1 ):
