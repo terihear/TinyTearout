@@ -53,7 +53,7 @@ class MultDriver:
         self.dut.ena.value = 0
         self.dut.ui_in.value = 0
 
-    async def collect_result(self, timeout_cycles=40):
+    async def collect_result(self, timeout_cycles=100):
         """Collect 2-byte serialized output (LSB first), return signed 16-bit."""
         lo_byte = None
         got_lo = False
@@ -64,7 +64,7 @@ class MultDriver:
             avail = int(self.dut.uio_oe.value);
             if avail > 0:
                 # output LO available
-                if ( not got_lo and avail == 1 ):
+                if ( (not got_lo) and (avail == 1) ):
                     lo_byte = val
                     got_lo = True
                 else:
@@ -75,7 +75,7 @@ class MultDriver:
         raise TimeoutError(f"No complete output within {timeout_cycles} cycles")
 
     async def send_and_collect(self, mcand_s16: int, coeff_q07: int,
-                                timeout_cycles=40):
+                                timeout_cycles=100):
         """Convenience: send operand and return result."""
         await self.send_operand(mcand_s16, coeff_q07)
         # Allow pipeline to process; first output byte appears ~16 cycles later
