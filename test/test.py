@@ -122,12 +122,12 @@ async def test_project(dut):
 @cocotb.test()
 async def us_per_step(dut):
     """Determine us per simulation time step"""
-    clock = Clock(dut.clk, 10, unit="us")
+    clock = Clock(dut.clk, 2, unit="step")
     cocotb.start_soon(clock.start())
 
     t_steps = 100
     t_start = cocotb.utils.get_sim_time(unit="us")
-    await ClockCyles(dut.clk, t_steps)
+    await ClockCycles(dut.clk, t_steps)
     t_end = cocotb.utils.get_sim_time(unit="us")
     t_duration = t_end - t_start
 
