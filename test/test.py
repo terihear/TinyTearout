@@ -122,7 +122,7 @@ async def test_project(dut):
 @cocotb.test()
 async def us_per_step(dut):
     """Determine us per simulation time step"""
-    clock = Clock(dut.clk, 2, unit="step")
+    clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
     t_steps = 100
