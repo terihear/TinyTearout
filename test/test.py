@@ -162,7 +162,7 @@ async def test_latency_falsification(dut):
         dut.ui_in.value = 0
 
         # Wait for first output byte
-        await self.collect_result(40)
+        await drv.collect_result(40)
         t_end = cocotb.utils.get_sim_time(unit="us")
         latency = round((t_end - t_start) / 10.0)
         latencies.append(latency)
