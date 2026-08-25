@@ -191,14 +191,14 @@ module tt_um_terihear_tinytearout (
       end // if (ena)
     end // always @ (posedge clk or negedge rst_n)
 
-   // uio_oe[0] as indicating output LO available
-   // uio_oe[1] as indicating LO or HI
-   assign uio_oe = {6'd0, out_word_sel, out_active};
+   // uio_out[0] as indicating output LO available
+   // uio_out[1] as indicating LO or HI
+   assign uio_oe = 8'b1;
+   assign uio_out = {6'b0, out_word_sel, out_active};
 
    assign uo_out = out_data;
    
    // All output pins must be assigned. If not used, assign to 0.
-  assign uio_out = 0;
  
   // List all unused inputs to prevent warnings
   wire _unused = &{uio_in, 1'b0};
