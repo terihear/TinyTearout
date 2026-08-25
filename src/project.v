@@ -177,15 +177,16 @@ module tt_um_terihear_tinytearout (
             // Capture result, emit LO byte immediately
             out_shift    <= rounded_result;
             out_data     <= rounded_result[7:0];
-            // still out_word_sel <= 1'b0;
+            out_word_sel <= 1'b0;
             out_active   <= 1'b1;
-         end else if (out_active) begin
-            // Emit HI byte, then deactivate
+         end else if (out_active && !out_word_sel) begin
+            // Emit HI byte
             out_data     <= out_shift[15:8];
             out_word_sel <= 1'b1;
-            out_active   <= 1'b0;
+            out_active   <= 1'b1;
          end else begin
 	    out_word_sel <= 1'b0;
+	    out_active <= 1'b0;
             out_data <= 8'd0;
          end
       end // if (ena)
@@ -193,7 +194,7 @@ module tt_um_terihear_tinytearout (
 
    // uio_out[0] as indicating output LO available
    // uio_out[1] as indicating LO or HI
-   assign uio_oe = 8'b1;
+   assign uio_oe = 8'd1;
    assign uio_out = {6'b0, out_word_sel, out_active};
 
    assign uo_out = out_data;
