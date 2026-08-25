@@ -191,7 +191,7 @@ BOUNDARY_CASES = [
 ]
 
 
-#@cocotb.test()
+@cocotb.test()
 async def test_boundary_coefficients(dut):
     """Verify correct results for all boundary coefficient values."""
     cocotb.start_soon(Clock(dut.clk, 10, unit="us").start())
@@ -230,7 +230,7 @@ def generate_half_round_cases(n=30):
     return cases
 
 
-#@cocotb.test()
+@cocotb.test()
 async def test_rounding_half_up(dut):
     """Verify round-half-up when fractional residue is exactly 0.5."""
     cocotb.start_soon(Clock(dut.clk, 10, unit="us").start())
@@ -260,7 +260,7 @@ async def test_rounding_half_up(dut):
 # OVERFLOW FALSIFICATION
 # =============================================================================
 
-#@cocotb.test()
+@cocotb.test()
 async def test_overflow_falsification(dut):
     """Exhaustive corner sweep + random stress to falsify overflow safety."""
     cocotb.start_soon(Clock(dut.clk, 10, unit="us").start())
