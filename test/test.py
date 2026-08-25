@@ -119,6 +119,22 @@ async def test_project(dut):
 
     dut._log.info("Test project behavior")
 
+@cocotb.test()
+async def us_per_step(dut):
+    """Determine us per simulation time step"""
+    clock = Clock(dut.clk, 1, unit="step")
+    cocotb.start_soon(clock.start())
+
+    t_steps = 100
+    t_start = cocotb.utils.get_sim_time(unit="us")
+    await ClockCyles(dut.clk, t_steps)
+    t_end = cocotb.utils.get_sim_time(unit="us")
+    t_duration = t_end - t_start
+
+    dut._log.info(f"start {t_start} us, end {t_end} us, duration {t_duration} us, {t_steps} steps"
+                  f"us per step = {(t_duration / t_steps)}"
+                  )
+
 # =============================================================================
 # LATENCY FALSIFICATION
 # =============================================================================
@@ -130,7 +146,7 @@ async def test_latency_falsification(dut):
     Spec: 16 cycles. Attempt to falsify with 50 random trials.
     Set the sim clock period to 20 ns (50 MHz)
     """
-    clock = Clock(dut.clk, 20, unit="ns")
+    clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
     drv = MultDriver(dut)
     await drv.reset()
@@ -155,20 +171,20 @@ async def test_latency_falsification(dut):
 
         # Cycle 2: mcand_hi ← REFERENCE POINT (mcand fully presented)
         dut.ui_in.value = (mcand >> 8) & 0xFF
-        t_start = cocotb.utils.get_sim_time(unit="ns")
+        t_start = cocotb.utils.get_sim_time(unit="us")
         await RisingEdge(dut.clk)
 
         dut.ena.value = 0
         dut.ui_in.value = 0
 
-        # Wait for first output byte
+        # Wait for first output byte - does not do no such nothing
         found = False
         for cyc in range(40):
             await RisingEdge(dut.clk)
             # After sufficient pipeline delay, capture first output
             if cyc >= 13:  # Earliest possible: cycle 14
-                t_end = cocotb.utils.get_sim_time(unit="ns")
-                latency = round((t_end - t_start) / 20.0)
+                t_end = cocotb.utils.get_sim_time(unit="us")
+                latency = round((t_end - t_start) / 10.0)
                 latencies.append(latency)
                 found = True
                 break
@@ -207,7 +223,7 @@ BOUNDARY_CASES = [
 @cocotb.test()
 async def test_boundary_coefficients(dut):
     """Verify correct results for all boundary coefficient values."""
-    cocotb.start_soon(Clock(dut.clk, 20, unit="ns").start())
+    cocotb.start_soon(Clock(dut.clk, 10, unit="us").start())
     drv = MultDriver(dut)
     await drv.reset()
 
@@ -246,7 +262,7 @@ def generate_half_round_cases(n=30):
 @cocotb.test()
 async def test_rounding_half_up(dut):
     """Verify round-half-up when fractional residue is exactly 0.5."""
-    cocotb.start_soon(Clock(dut.clk, 20, unit="ns").start())
+    cocotb.start_soon(Clock(dut.clk, 10, unit="us").start())
     drv = MultDriver(dut)
     await drv.reset()
 
@@ -276,7 +292,7 @@ async def test_rounding_half_up(dut):
 @cocotb.test()
 async def test_overflow_falsification(dut):
     """Exhaustive corner sweep + random stress to falsify overflow safety."""
-    cocotb.start_soon(Clock(dut.clk, 20, unit="ns").start())
+    cocotb.start_soon(Clock(dut.clk, 10, unit="us").start())
     drv = MultDriver(dut)
     await drv.reset()
 
