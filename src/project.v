@@ -82,79 +82,59 @@ module tt_um_terihear_tinytearout (
 
     // =========================================================
     // BIT-SERIAL MULTIPLIER
-    // 8 cycles accumulation + 7 cycles alignment = 15 cycles
-    // Rounding on cycle 16 → total 16-cycle latency from
+    // 8 cycles accumulation
+    // Rounding on cycle 6
     // operands_valid assertion to rounded result available
     // =========================================================
     reg signed [ACC_W-1:0] accumulator;
-    reg [3:0]              bit_cnt;       // 0..14 during active multiply
+    reg [2:0]              bit_cnt;       // 0..7 during active multiply
     reg                    mult_active;
-    reg                    mult_done;     // Single-cycle pulse
+    reg signed [MCAND_W-1:0] rounded_result;
+    reg                      result_valid;
 
     wire coeff_bit   = coeff_latch[bit_cnt];
-    wire is_last_bit = (bit_cnt == COEFF_W - 1);
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             accumulator <= {ACC_W{1'sb0}};
-            bit_cnt     <= 4'd0;
+            bit_cnt     <= 3'd0;
             mult_active <= 1'b0;
-            mult_done   <= 1'b0;
-        end else if (ena) begin
-            mult_done <= 1'b0;
-
-            if (operands_valid && !mult_active) begin
-                // Launch new multiplication
-                accumulator <= {ACC_W{1'sb0}};
-                bit_cnt     <= 4'd0;
-                mult_active <= 1'b1;
-            end else if (mult_active) begin
-                if (bit_cnt < COEFF_W) begin
-                    // Accumulation phase: one coeff bit per cycle
-                    if (is_last_bit) begin
-                        // MSB of 2's complement has negative weight
-                        if (coeff_bit)
-                            accumulator <= accumulator -
-                                ($signed(multiplicand) <<< FRAC_B);
-                    end else begin
-                        if (coeff_bit)
-                            accumulator <= accumulator +
-                                ($signed(multiplicand) <<< bit_cnt);
-                    end
-                    bit_cnt <= bit_cnt + 4'd1;
-                end else if (bit_cnt == 4'd14) begin
-                    // End of alignment padding (cycles 8..14)
-                    mult_done   <= 1'b1;
-                    mult_active <= 1'b0;
-                    bit_cnt     <= 4'd0;
-                end else begin
-                    // Alignment/pipeline delay (no-op accumulation)
-                    bit_cnt <= bit_cnt + 4'd1;
-                end
-            end
-        end
-    end
-
-    // =========================================================
-    // ROUNDING: Round-half-up on fractional residue
-    // =========================================================
-    reg signed [MCAND_W-1:0] rounded_result;
-    reg                      result_valid; // Single-cycle pulse
-
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
             rounded_result <= 16'sd0;
             result_valid   <= 1'b0;
         end else if (ena) begin
-            result_valid <= mult_done; // Propagate done pulse
-            if (mult_done) begin
-                // Round half-up: if frac[6]==1, add 1 to integer part
-                if (accumulator[FRAC_B-1])
-                    rounded_result <= accumulator[ACC_W-1:FRAC_B] + 16'sd1;
-                else
-                    rounded_result <= accumulator[ACC_W-1:FRAC_B];
-            end
-        end
+            if (operands_valid && !mult_active) begin
+                // Launch new multiplication
+                accumulator <= {ACC_W{1'sb0}};
+                bit_cnt     <= 3'd0;
+                mult_active <= 1'b1;
+            end else if (mult_active) begin
+               // Accumulation: one coeff bit per cycle
+	       if (bit_cnt == FRAC_B) begin
+		  // MSB of coefficient
+                  if (coeff_bit) begin
+                     // MSB of 2's complement has negative weight
+                     rounded_result <= accumulator -
+				       ($signed(multiplicand) <<< bit_cnt);
+		  end
+                  mult_active <= 1'b0;
+		  result_valid = 1'b1;
+                  bit_cnt     <= 3'd0;
+	       end else begin
+                  if (coeff_bit)
+                    accumulator <= accumulator +
+                                   ($signed(multiplicand) <<< bit_cnt);
+		  if (bit_cnt == (FRAC_B-1)) begin
+		     // next to last bit
+		     // Round half-up: if frac[6]==1, add 1
+		     if (accumulator[bit_cnt])
+		       rounded_result <= accumulator[ACC_W-1:FRAC_B] + 16'sd1;
+		     else
+		       rounded_result <= accumulator[ACC_W-1:FRAC_B];
+		  end
+		  bit_cnt <= bit_cnt + 3'd1;
+	       end // else: !if(bit_cnt == FRAC_B)
+            end // if (mult_active)
+	end // if (ena)
     end
 
     // =========================================================
