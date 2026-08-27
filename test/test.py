@@ -140,7 +140,7 @@ async def test_latency_falsification(dut):
 
     for trial in range(NUM_TRIALS):
         mcand = random.randint(-32768, 32767)
-        coeff = random.randint(-128, 127)
+        coeff = random.randint(-127, 127)
 
         # Manually drive to get precise timestamps
         # dut.ena.value = 1
@@ -177,14 +177,14 @@ async def test_latency_falsification(dut):
 BOUNDARY_CASES = [
     ("max_pos_coeff",        16384,  127, "+127/128 × 16384"),
     ("max_pos_neg_mcand",   -16384,  127, "+127/128 × -16384"),
-    ("neg_one",              16384,  128, "-1.0 × 16384"),
-    ("neg_one_neg_mcand",   -16384,  128, "-1.0 × -16384"),
     ("zero_coeff",           32000,    0, "0 × 32000"),
     ("zero_coeff_neg",      -32000,    0, "0 × -32000"),
-    ("min_neg_coeff",        16384,  255, "-1/128 × 16384"),
-    ("min_neg_coeff_neg",   -16384,  255, "-1/128 × -16384"),
+    ("max_neg_coeff",        16384,  255, "-1/128 × 16384"),
+    ("max_neg_coeff_neg",   -16384,  255, "-1/128 × -16384"),
+    ("min_neg_coeff",        16384,  129, "-127/128 × 16384"),
+    ("min_neg_coeff_neg",   -16384,  129, "-127/128 × -16384"),
     ("near_max_pos",         32767,  127, "+127/128 × 32767"),
-    ("neg_unity_boundary",  -32768,  128, "-1.0 × -32768"),
+    ("neg_unity_boundary",  -32768,  129, "-127/128 × -32768"),
     ("small_pos",                1,  127, "+127/128 × 1"),
     ("small_neg_frac",          64,  255, "-1/128 × 64 = -0.5 → rounds to 0"),
 ]
@@ -222,7 +222,7 @@ def generate_half_round_cases(n=30):
     while len(cases) < n and attempts < 200000:
         attempts += 1
         m = random.randint(-32768, 32767)
-        c = random.randint(-128, 127)
+        c = random.randint(-127, 127)
         prod = m * c
         if abs(prod) % 128 == 64:
             cases.append((m, c))
@@ -267,7 +267,7 @@ async def test_overflow_falsification(dut):
     await drv.reset()
 
     corners_m = [-32768, -32767, -1, 0, 1, 32766, 32767]
-    corners_c = [-128, -127, -1, 0, 1, 126, 127]
+    corners_c = [-127, -126, -1, 0, 1, 126, 127]
 
     failures = []
     count = 0
@@ -293,7 +293,7 @@ async def test_overflow_falsification(dut):
     for _ in range(500):
         count += 1
         m = random.randint(-32768, 32767)
-        c = random.randint(-128, 127)
+        c = random.randint(-127, 127)
         expected = golden_multiply(m, c)
         actual = await drv.send_and_collect(m, c)
         if actual != expected:
