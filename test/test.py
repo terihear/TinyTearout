@@ -13,8 +13,8 @@ import random
 
 class MultDriver:
     """
-    Drives the 3-cycle input protocol:
-      Cycle 0: ui_in = coefficient (Q0.7 signed, 8-bit 2's comp)
+    Drives the 2-cycle input:
+      Cycle 0: uio_in = coefficient (Q0.7 signed, 8-bit 2's comp)
       Cycle 1: ui_in = multiplicand[7:0]
       Cycle 2: ui_in = multiplicand[15:8]
     Then waits for 2-byte serialized output (LSB first).
@@ -26,6 +26,7 @@ class MultDriver:
     async def reset(self):
         self.dut.rst_n.value = 0
         self.dut.ena.value = 1
+        self.dut.uio_in.value = 0
         self.dut.ui_in.value = 0
         for _ in range(5):
             await RisingEdge(self.dut.clk)
@@ -33,24 +34,23 @@ class MultDriver:
         await RisingEdge(self.dut.clk)
 
     async def send_operand(self, mcand_s16: int, coeff_q07: int):
-        """Send one multiply operation using the clean 3-cycle protocol."""
+        """Send one multiply operation using 2 cycles """
         # self.dut.ena.value = 1
 
         # Cycle 0: Coefficient
-        self.dut.ui_in.value = coeff_q07 & 0xFF
-        await RisingEdge(self.dut.clk)
-
-        # Cycle 1: Multiplicand low byte
+        self.dut.uio_in.value = coeff_q07 & 0xFF
+        # Cycle 0: Multiplicand low byte
         self.dut.ui_in.value = mcand_s16 & 0xFF
         await RisingEdge(self.dut.clk)
 
-        # Cycle 2: Multiplicand high byte (completes operand load)
+        # Cycle 1: Multiplicand high byte (completes operand load)
         mcand_hi = (mcand_s16 >> 8) & 0xFF
         self.dut.ui_in.value = mcand_hi
         await RisingEdge(self.dut.clk)
 
         # Release enable after operand is fully loaded
         # self.dut.ena.value = 0
+        self.dut.uio_in.value = 0
         self.dut.ui_in.value = 0
 
     async def collect_result(self, timeout_cycles=40):
@@ -146,19 +146,18 @@ async def test_latency_falsification(dut):
         # dut.ena.value = 1
 
         # Cycle 0: coeff
-        dut.ui_in.value = coeff & 0xFF
-        await RisingEdge(dut.clk)
-
-        # Cycle 1: mcand_lo
+        dut.uio_in.value = coeff & 0xFF
+        # Cycle 0: mcand_lo
         dut.ui_in.value = mcand & 0xFF
         await RisingEdge(dut.clk)
 
-        # Cycle 2: mcand_hi ← REFERENCE POINT (mcand fully presented)
+        # Cycle 1: mcand_hi ← REFERENCE POINT (mcand fully presented)
         dut.ui_in.value = (mcand >> 8) & 0xFF
         t_start = cocotb.utils.get_sim_time(unit="us")
         await RisingEdge(dut.clk)
 
         # dut.ena.value = 0
+        dut.uio_in.value = 0
         dut.ui_in.value = 0
 
         # Wait for first output byte
