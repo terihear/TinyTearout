@@ -25,14 +25,13 @@ module tt_um_terihear_tinytearout (
     localparam FRAC_B  = 7;  // Q0.7 format
 
     // =========================================================
-    // INPUT SERDES: 3-cycle protocol
-    //   Cycle 0 (LOAD_COEFF):  ui_in = coefficient (Q0.7 signed)
-    //   Cycle 1 (LOAD_MCLO):   ui_in = multiplicand[7:0]
-    //   Cycle 2 (LOAD_MCHI):   ui_in = multiplicand[15:8]
+    // INPUT: 2-cycles
+    //   Cycle 0 (LOAD_COEFF): uio_in = coefficient (Q0.7 signed)
+    //   Cycle 0 (LOAD_MCLO):   ui_in = multiplicand[7:0]
+    //   Cycle 1 (LOAD_MCHI):   ui_in = multiplicand[15:8]
     // =========================================================
     localparam [1:0] S_IDLE     = 2'd0,
                      S_LOAD_COEFF = 2'd1,
-                     S_LOAD_MCLO  = 2'd2,
                      S_LOAD_MCHI  = 2'd3;
 
     reg [1:0]             in_state;
@@ -40,6 +39,8 @@ module tt_um_terihear_tinytearout (
     reg [7:0]             mcand_lo;
     reg signed [MCAND_W-1:0] multiplicand;
     reg                   operands_valid; // Single-cycle pulse
+
+    assign uio_oe = 0;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -58,11 +59,7 @@ module tt_um_terihear_tinytearout (
                 end
 
                 S_LOAD_COEFF: begin
-                    coeff_latch <= $signed(ui_in);
-                    in_state    <= S_LOAD_MCLO;
-                end
-
-                S_LOAD_MCLO: begin
+                    coeff_latch <= $signed(uio_in);
                     mcand_lo <= ui_in;
                     in_state <= S_LOAD_MCHI;
                 end
@@ -80,6 +77,8 @@ module tt_um_terihear_tinytearout (
             operands_valid <= 1'b0;
         end
     end
+
+    assign uio_oe = 8'hFF;
 
     // =========================================================
     // BIT-SERIAL MULTIPLIER
@@ -159,7 +158,7 @@ module tt_um_terihear_tinytearout (
     end
 
     // =========================================================
-    // OUTPUT SERDES: 16-bit → two 8-bit words, LSB first
+    // OUTPUT: 16-bit → two 8-bit words, LSB first
     // =========================================================
     reg        out_word_sel; // 0 = emit LO, 1 = emit HI
     reg [15:0] out_shift;
@@ -192,8 +191,6 @@ module tt_um_terihear_tinytearout (
       end // if (ena)
     end // always @ (posedge clk or negedge rst_n)
 
-   assign uio_oe = 8'hFF;
-
    // uio_out[0] as indicating output LO available
    // uio_out[1] as indicating LO or HI
    assign uio_out = {6'b0, out_word_sel, out_active};
@@ -202,6 +199,5 @@ module tt_um_terihear_tinytearout (
    // All output pins must be assigned. If not used, assign to 0.
  
   // List all unused inputs to prevent warnings
-  wire _unused = &{uio_in, 1'b0};
 
 endmodule
