@@ -55,7 +55,7 @@ class MultDriver:
 
     async def collect_result(self, timeout_cycles=40):
         """Collect 2-byte serialized output (LSB first), return signed 16-bit."""
-        lo_byte = None
+        lo_byte = 0
         got_lo = False
 
         for _ in range(timeout_cycles):
