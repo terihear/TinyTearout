@@ -35,7 +35,7 @@ class MultDriver:
 
     async def send_operand(self, mcand_s16: int, coeff_q07: int):
         """Send one multiply operation using 2 cycles """
-        # self.dut.ena.value = 1
+        self.dut.ena.value = 1
 
         # Cycle 0: Coefficient
         self.dut.uio_in.value = coeff_q07 & 0xFF
@@ -63,7 +63,7 @@ class MultDriver:
             val = int(self.dut.uo_out.value)
             avail = int(self.dut.uio_out.value);
             
-            self.dut._log.info(f"result avail {avail} result val{val}")
+            self.dut._log.info(f"result avail {avail} result val {val}")
 
             if avail > 0:
                 # output LO available
@@ -159,28 +159,24 @@ async def test_latency_falsification(dut):
         # Cycle 0: mcand_lo
         dut.ui_in.value = mcand & 0xFF
 
-        dut._log.info(f"trial {trial} coeff{dut.uio_in.value}, mcand{mcand} mcandLO{dut.ui_in.value} ")
-
         await RisingEdge(dut.clk)
+
+        dut._log.info(f"trial {trial} coeff {dut.uio_in.value}, mcand {mcand} mcandLO {dut.ui_in.value} ")
 
         # Cycle 1: mcand_hi ← REFERENCE POINT (mcand fully presented)
         dut.ui_in.value = (mcand >> 8) & 0xFF
         t_start = cocotb.utils.get_sim_time(unit="us")
 
-        dut._log.info(f"trial {trial} t_start{t_start}, mcandHI{dut.ui_in.value}")
-
         await RisingEdge(dut.clk)
 
-        # dut.ena.value = 0
-        dut.uio_in.value = 0
-        dut.ui_in.value = 0
+        dut._log.info(f"trial {trial} t_start {t_start}, mcandHI {dut.ui_in.value}")
 
         # Wait for first output byte
         result = await drv.collect_result(40)
         t_end = cocotb.utils.get_sim_time(unit="us")
  
-        expected = golden_multiply(mcand, coeff)
-        dut._log.info(f"trial {trial} t_end{t_end}, result{result} golden{golden}")
+        golden = golden_multiply(mcand, coeff)
+        dut._log.info(f"trial {trial} t_end{t_end}, result {result} golden {golden}")
 
         latency = round((t_end - t_start) / 10.0)
         latencies.append(latency)
