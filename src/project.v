@@ -19,7 +19,7 @@ module tt_um_terihear_tinytearout (
     // =========================================================
     // PARAMETERS
     // =========================================================
-    localparam MCAND_W = 16;
+    localparam MCAND_W = 24;
     localparam COEFF_W = 8;
     localparam ACC_W   = 24; // 16 int + 7 frac + 1 sign guard
     localparam FRAC_B  = 7;  // Q0.7 format
@@ -47,7 +47,7 @@ module tt_um_terihear_tinytearout (
             in_state       <= S_IDLE;
             coeff_latch    <= 8'sd0;
             mcand_lo       <= 8'd0;
-            multiplicand   <= 16'sd0;
+            multiplicand   <= 24'sd0;
             operands_valid <= 1'b0;
         end else if (ena) begin
             operands_valid <= 1'b0; // Default: single-cycle pulse
@@ -113,16 +113,18 @@ module tt_um_terihear_tinytearout (
 		  // MSB of coefficient
                   if (coeff_bit) begin
                      // MSB of 2's complement has negative weight
-                     rounded_result <= accumulator -
-				       ($signed(multiplicand) <<< bit_cnt);
+                     accumulator <= accumulator -
+				    ($signed(multiplicand) <<< bit_cnt);
+		     rounded_result <= accumulator[ACC_W-1:FRAC_B];
 		  end
                   mult_active <= 1'b0;
 		  result_valid = 1'b1;
                   bit_cnt     <= 3'd0;
 	       end else begin
-                  if (coeff_bit)
-                    accumulator <= accumulator +
-                                   ($signed(multiplicand) <<< bit_cnt);
+                  if (coeff_bit) begin
+                     accumulator <= accumulator +
+                                    ($signed(multiplicand) <<< bit_cnt);
+		  end
 		  if (bit_cnt == (FRAC_B-1)) begin
 		     // next to last bit
 		     // Round half-up: if frac[6]==1, add 1
