@@ -37,7 +37,7 @@ module tt_um_terihear_tinytearout (
     reg [1:0]             in_state;
     reg signed [COEFF_W-1:0] coeff_latch;
     reg [7:0]             mcand_lo;
-    reg signed [MCAND_W-1:0] multiplicand;
+    reg signed [ACC_W-1:0] multiplicand;
     reg                   operands_valid; // Single-cycle pulse
 
     assign uio_oe = 0;
@@ -47,7 +47,7 @@ module tt_um_terihear_tinytearout (
             in_state       <= S_IDLE;
             coeff_latch    <= 8'sd0;
             mcand_lo       <= 8'd0;
-            multiplicand   <= 16'sd0;
+            multiplicand   <= {ACC_W{1'sb0}};
             operands_valid <= 1'b0;
         end else if (ena) begin
             operands_valid <= 1'b0; // Default: single-cycle pulse
