@@ -116,7 +116,7 @@ module tt_um_terihear_tinytearout (
                      accumulator <= accumulator -
 				    ($signed(multiplicand) <<< bit_cnt);
 		  end
-		  rounded_result <= accumulator[ACC_W-1:COEFF_W];
+		  rounded_result <= accumulator[ACC_W-1:FRAC_B];
                   mult_active <= 1'b0;
 		  result_valid = 1'b1;
                   bit_cnt     <= 3'd0;
@@ -126,12 +126,10 @@ module tt_um_terihear_tinytearout (
                                     ($signed(multiplicand) <<< bit_cnt);
 		  end
 		  if (bit_cnt == (FRAC_B-1)) begin
-		     // next to last bit
-		     // Round half-up: if frac[6]==1, add 1 to integer part
+		     // round half-up: if frac[6]==1
 		     if (accumulator[FRAC_B-1])
-		       accumulator <= accumulator[ACC_W-1:FRAC_B] + 16'sd1;
-		     else
-		       accumulator <= accumulator[ACC_W-1:FRAC_B];
+		       accumulator <= accumulator +
+				      ((16'sd1) <<< bit_cnt);
 		  end
 		  bit_cnt <= bit_cnt + 3'd1;
 	       end // else: !if(bit_cnt == FRAC_B)
