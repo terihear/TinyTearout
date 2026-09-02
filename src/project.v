@@ -152,7 +152,7 @@ module tt_um_terihear_tinytearout (
             out_shift    <= 16'd0;
             out_active   <= 1'b0;
       end else if (ena) begin
-         if (result_valid && !out_active) begin
+         if (result_valid && !out_active && !out_word_sel) begin
             // Capture result, emit LO byte immediately
             out_shift    <= multiplicand[15:0];
             out_data     <= out_shift[7:0];
@@ -163,9 +163,10 @@ module tt_um_terihear_tinytearout (
             out_data     <= out_shift[15:8];
             out_word_sel <= 1'b1;
             out_active   <= 1'b1;
-         end else begin
+         end else if (out_active && out_word_sel) begin
 	    out_word_sel <= 1'b0;
 	    out_active <= 1'b0;
+	 end else begin
             out_data <= 8'd0;
          end
       end // if (ena)
