@@ -60,8 +60,6 @@ ASCII block schematic:
 
 ## How to test
 
-There is a test for basic debugging.
-
 We characterize the latency as clock cycles from operands valid to rounded product emission.
 
 We test for arithmetic correctness with the "golden model" for
