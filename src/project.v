@@ -65,7 +65,7 @@ module tt_um_terihear_tinytearout (
                 end
 
                 S_LOAD_MCHI: begin
-                    multiplicand   <= $signed({ui_in, mcand_lo});
+                    multiplicand   <= $signed({8'sd0, ui_in, mcand_lo});
                     operands_valid <= 1'b1; // Pulse: start multiply next cycle
                     in_state       <= S_IDLE;
                 end
@@ -118,7 +118,7 @@ module tt_um_terihear_tinytearout (
 		  end
 		  rounded_result <= accumulator[ACC_W-1:FRAC_B];
                   mult_active <= 1'b0;
-		  result_valid = 1'b1;
+		  result_valid <= 1'b1;
                   bit_cnt     <= 3'd0;
 	       end else begin
                   if (coeff_bit) begin
@@ -129,7 +129,7 @@ module tt_um_terihear_tinytearout (
 		     // round half-up: if frac[6]==1
 		     if (accumulator[FRAC_B-1])
 		       accumulator <= accumulator +
-				      ((16'sd1) <<< bit_cnt);
+				      ((24'sd1) <<< bit_cnt);
 		  end
 		  bit_cnt <= bit_cnt + 3'd1;
 	       end // else: !if(bit_cnt == FRAC_B)
@@ -154,7 +154,7 @@ module tt_um_terihear_tinytearout (
       end else if (ena) begin
          if (result_valid && !out_active && !out_word_sel) begin
             // Capture result, emit LO byte immediately
-            out_shift    <= multiplicand[15:0];
+            out_shift    <= rounded_result[15:0];
 	    result_valid <= 1'b0;
 	    // Emit LO byte
             out_word_sel <= 1'b0;
